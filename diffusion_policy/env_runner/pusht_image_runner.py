@@ -181,6 +181,7 @@ class PushTImageRunner(BaseImageRunner):
             pbar = tqdm.tqdm(total=self.max_steps, desc=f"Eval PushtImageRunner {chunk_idx+1}/{n_chunks}", 
                 leave=False, mininterval=self.tqdm_interval_sec)
             done = False
+            block_pos_list = []
             while not done:
                 # create obs dict
                 np_obs_dict = dict(obs)
@@ -189,6 +190,8 @@ class PushTImageRunner(BaseImageRunner):
                     np_obs_dict['past_action'] = past_action[
                         :,-(self.n_obs_steps-1):].astype(np.float32)
                 
+                block_pos_list.append(np_obs_dict.pop('block_pos')[:,-1,:])
+
                 # device transfer
                 obs_dict = dict_apply(np_obs_dict, 
                     lambda x: torch.from_numpy(x).to(
@@ -213,6 +216,13 @@ class PushTImageRunner(BaseImageRunner):
                 pbar.update(action.shape[1])
             pbar.close()
 
+            np_obs_dict = dict(obs)
+            block_pos_list.append(np_obs_dict.pop('block_pos')[:,-1,:])
+
+            # save block_pos
+            block_pos_list = np.stack(block_pos_list)
+            np.save('block_pos.npy', block_pos_list)
+
             all_video_paths[this_global_slice] = env.render()[this_local_slice]
             all_rewards[this_global_slice] = env.call('get_attr', 'reward')[this_local_slice]
         # clear out video buffer
@@ -235,6 +245,7 @@ class PushTImageRunner(BaseImageRunner):
             max_reward = np.max(all_rewards[i])
             max_rewards[prefix].append(max_reward)
             log_data[prefix+f'sim_max_reward_{seed}'] = max_reward
+            print(max_reward)
 
             # visualize sim
             video_path = all_video_paths[i]

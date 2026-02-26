@@ -11,6 +11,7 @@ import shapely.geometry as sg
 import cv2
 import skimage.transform as st
 from diffusion_policy.env.pusht.pymunk_override import DrawOptions
+import random
 
 
 def pymunk_to_shapely(body, shapes):
@@ -83,6 +84,8 @@ class PushTEnv(gym.Env):
         self.render_buffer = None
         self.latest_action = None
         self.reset_to_state = reset_to_state
+
+        self.trajectory = []
     
     def reset(self):
         seed = self._seed
@@ -96,10 +99,17 @@ class PushTEnv(gym.Env):
         state = self.reset_to_state
         if state is None:
             rs = np.random.RandomState(seed=seed)
+            # state = np.array([
+            #     rs.randint(50, 450), rs.randint(50, 450),
+            #     rs.randint(100, 400), rs.randint(100, 400),
+            #     rs.randn() * 2 * np.pi - np.pi
+            #     ])
+            x = rs.randint(50, 450)
+            y = rs.randint(50, 512-x)
             state = np.array([
-                rs.randint(50, 450), rs.randint(50, 450),
-                rs.randint(100, 400), rs.randint(100, 400),
-                rs.randn() * 2 * np.pi - np.pi
+                x, y,
+                370, 100,
+                np.pi/4*5
                 ])
         self._set_state(state)
 
@@ -118,6 +128,8 @@ class PushTEnv(gym.Env):
                 acceleration = self.k_p * (action - self.agent.position) + self.k_v * (Vec2d(0, 0) - self.agent.velocity)
                 self.agent.velocity += acceleration * dt
 
+                self.trajectory.append(self._get_obs()['block_pos'])
+        
                 # Step physics.
                 self.space.step(dt)
 
@@ -135,6 +147,9 @@ class PushTEnv(gym.Env):
         observation = self._get_obs()
         info = self._get_info()
 
+        if done:
+            self.trajectory = np.stack(self.trajectory)
+            np.save(f'trajectory_{random.randint(0,1000)}.npy', self.trajectory)
         return observation, reward, done, info
 
     def render(self, mode):

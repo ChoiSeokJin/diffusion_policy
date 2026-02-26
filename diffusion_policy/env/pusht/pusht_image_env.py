@@ -30,6 +30,12 @@ class PushTImageEnv(PushTEnv):
                 high=ws,
                 shape=(2,),
                 dtype=np.float32
+            ),
+            'block_pos': spaces.Box(
+            low=np.array([0,0,0,0,0], dtype=np.float32),
+            high=np.array([ws,ws,ws,ws,np.pi*2], dtype=np.float32),
+            shape=(5,),
+            dtype=np.float32
             )
         })
         self.render_cache = None
@@ -37,11 +43,17 @@ class PushTImageEnv(PushTEnv):
     def _get_obs(self):
         img = super()._render_frame(mode='rgb_array')
 
+        tblock = np.array(
+            tuple(self.agent.position) \
+            + tuple(self.block.position) \
+            + (self.block.angle % (2 * np.pi),))
+        
         agent_pos = np.array(self.agent.position)
         img_obs = np.moveaxis(img.astype(np.float32) / 255, -1, 0)
         obs = {
             'image': img_obs,
-            'agent_pos': agent_pos
+            'agent_pos': agent_pos,
+            'block_pos': tblock
         }
 
         # draw action
